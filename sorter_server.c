@@ -17,7 +17,10 @@
 #include <netinet/in.h>
 
 int movInd;
-char* movies;
+//char* movies;
+struct Movie** movies;
+int* threadCount;//counter to join all threads in while loop
+pthread_t* TIDs;// stores all TIDS
 pthread_mutex_t arrayLock;
 
 static void* threadService(void* arg){
@@ -36,14 +39,29 @@ static void* threadService(void* arg){
 int main(int argc, char* argv[]){
 
 	if(argc != 3){
-		printf("incorrect input format\n");
+		printf("incorrect input format, correct format is ./sorter_server -p [port_num]\n");
 		return -1;
 	}
-
+	char *trash;
+	int port;
+	if(strcmp(argv[1],"-p")==0){
+		port=strtol(argv[2],&trash,10);//strtol returns a long int
+	}
+	else{
+		printf("incorrect input format, correct format is ./sorter_server -p [port_num]\n");
+		return -1;
+	}
+	TIDs=malloc(sizeof(pthread_t)*2000);
+	int i;
+	for(i=0;i<1024;i++){
+		movies[i]=malloc(sizeof(struct Movie)*10000);
+	}
+	threadCount=malloc(sizeof(int));
+	*threadCount=0;
 	movInd = 0;
 	setbuf(stdout, NULL);
 	movies = malloc(500000*sizeof(struct Movie));
-	int port = argv[2];
+	//int port = argv[2];
 	struct sockaddr_in address;
 	int sockfd;
 	int clientfd;
@@ -61,11 +79,13 @@ int main(int argc, char* argv[]){
 
 	if (bind(sockfd, (struct sockaddr*)&address, sizeof(address)) < 0){
 		printf("error: binding socket failed\n");
+		close(sockfd);
 		return -1;
 	}
 
 	if(listen(sockfd,5)<0){
 		printf("error: listening failed\n");
+		close(sockfd);
 		return -1;
 	}
 
@@ -75,21 +95,25 @@ int main(int argc, char* argv[]){
 		
 		if(clientfd < 1){
 			printf("error: accept failed\n");
+			close(sockfd);
 			return -1;
 		}
 
 		//print the client IP
 
 		int arg = clientfd;
-		pthread_t thrd[1];
+		//pthread_t thrd[1];
 		char* mode;
 		read(clientfd,&mode,1);
 		if(*mode == 'f'){
-			pthread_create(&thrd[0],NULL,&threadService,(void*)arg);
+			pthread_create(&TIDs[*threadCount],NULL,&threadService,(void*)arg);
+			(*threadCount)++;
 		}
 
 
 	}
+	close(sockfd);
+	return 0;
 
 
 }
