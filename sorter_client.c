@@ -44,6 +44,9 @@ static void* fileThread(void* arg){		//read in the lines from the given file if 
 	pthread_mutex_lock(&threadParamLock);
 	struct fThreadInfo* data = (struct fThreadInfo*)arg;	//NEEDS MUTEX
 	pthread_mutex_unlock(&threadParamLock);
+	FILE * add = fopen(data->path, "a");
+	fprintf(add, "@\n");
+	fclose(add);
 	FILE* file = fopen(data->path, "r");
 	char line[1024] = {0};
 	int commas=0;
@@ -60,6 +63,7 @@ static void* fileThread(void* arg){		//read in the lines from the given file if 
 			pthread_exit(NULL);
 		}
 	}
+	fseek(file, 0, SEEK_SET);	//resets the file
 	struct sockaddr_in serverAddressInfo;
 	struct hostent *serverIPAddress;
 	struct stat stat_buf;
@@ -81,15 +85,13 @@ static void* fileThread(void* arg){		//read in the lines from the given file if 
 	send(sockfd, (void*) &stat_buf.st_size, sizeof(int), 0);
 
 	sendfile(sockfd, fileD, NULL, stat_buf.st_size);
-	char * closer;
-	while (1) {
-		recv(sockfd,(void*) closer, sizeof(char), 0);
-		if (*closer == 'y') {
-			break;
-		}
+	char* closer = malloc(sizeof(char*));
+	recv(sockfd,(void*)closer,1, 0);
+	if (*closer == 'y') {
+		close(sockfd);
+		fclose(file);
 	}
-	close(sockfd);
-	fclose(file);
+	free(closer);
 	pthread_exit(NULL);
 }
 
@@ -438,7 +440,6 @@ int main(int argc, char **argv){
 	*dump = sockfd;
 
 	FILE * data = fdopen(*dump, "r");
-	usleep(1000);
 	char c[1024];
 	fgets(c, 1024, data);
 	while (c[0] != EOF) {

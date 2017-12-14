@@ -22,12 +22,12 @@ int ARRINDEX;
 int* threadCount;//counter to join all threads in while loop
 pthread_t* TIDs;// stores all TIDs
 pthread_mutex_t arrayLock;
-
+pthread_mutex_t argLock;
 
 
 static void* threadService(void* arg){
-	FILE* data = fdopen(*((int*)arg), "r");
-	usleep(1000);
+	int FD = *(int*)arg;
+	FILE* data = fdopen(FD, "r");
 	char garbage[1024];
 	fgets(garbage,1024,data);	//gets rid of first line
 	char* strbuf[1024];  //setup for getline
@@ -164,7 +164,14 @@ static void* threadService(void* arg){
 		ARRINDEX++;
 	} 
 	pthread_mutex_unlock(&arrayLock);
+	char* ret = malloc(sizeof(char*));
+	*ret = 'y';
+	printf("sending close...");
+	send(FD,(void*)&ret,1,0);
+	printf("close sent");
  	fclose(data);
+ 	close(FD);
+ 	free(ret);
 	pthread_exit(NULL);
 }
 
@@ -183,7 +190,8 @@ int main(int argc, char* argv[]){
 		printf("incorrect input format, correct format is ./sorter_server -p [port_num]\n");
 		return -1;
 	}
-	TIDs = malloc(sizeof(pthread_t)*2000);
+	TIDs = malloc(sizeof(pthread_t)*10000);
+	int** argList = malloc(sizeof(int*)*10000);
 	int i;
 	movies = malloc(500000*sizeof(struct Movie));
 	threadCount=malloc(sizeof(int));
@@ -236,25 +244,29 @@ int main(int argc, char* argv[]){
 
 		int addr = getpeername(clientfd, incoming, len);
 		printf("%s",incoming->sa_data);
-		int* arg = malloc(sizeof(int*));
-		*arg = clientfd;
+		argList[*threadCount] = malloc(sizeof(int*));
+		*(argList[*threadCount]) = clientfd;
+		int* fsize = malloc(sizeof(int*));
 		char* mode = malloc(sizeof(char*));
 		recv(clientfd,(void*)mode,1,0);
+		recv(clientfd,(void*)fsize,sizeof(int),0);
 		printf("%c",*mode);
 		if(*mode == 'f'){
-			pthread_create(&TIDs[*threadCount],NULL,&threadService,(void*)arg);
+			pthread_create(&TIDs[*threadCount],NULL,&threadService,(void*)argList[*threadCount]);
 			(*threadCount)++;
 		}
 		if(*mode == 'd'){
-			for(;*threadCount>=0;(*threadCount)--){
-				pthread_join(TIDs[*threadCount],NULL);
+			for(;*threadCount>0;(*threadCount)--){
+				pthread_join(TIDs[*threadCount-1],NULL);
 			}
 			int* field = malloc(sizeof(int*));
-			read(clientfd,&field,4);
+			recv(clientfd,(void*)&field,sizeof(int),0);
 			printf("%d", *field);
 			mergesort(movies,0,ARRINDEX,*field);
 			free(field);
-		}	
+		}
+		free(mode);
+		free(fsize);
 
 
 	}
