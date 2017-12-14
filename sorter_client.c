@@ -9,10 +9,12 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <time.h>
+#include <netdb.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <errno.h>
-#include "sorter_client.h"
+
+//gcc -std=gnu99 -pthread sorter_thread1.c -o sorter_thread
 
 pthread_mutex_t arrIndexLock;
 pthread_mutex_t threadParamLock;
@@ -25,6 +27,7 @@ char* buffer;
 char* in;
 char* out;
 
+int* threadCount; 
 pthread_t* TIDs;
 
 DIR* input;
@@ -61,9 +64,9 @@ static void* fileThread(void* arg){		//read in the lines from the given file if 
 	struct hostent *serverIPAddress;
 	struct stat stat_buf;
 	int sockfd = -1;
-	int offset = 0;
 
-	fstat(file, &stat_buf);
+	int fileD = fileno(file); 
+	fstat(fileD, &stat_buf);
 	serverIPAddress = gethostbyname(hostName);
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	bzero((char*) &serverAddressInfo, sizeof(serverAddressInfo));
@@ -74,10 +77,17 @@ static void* fileThread(void* arg){		//read in the lines from the given file if 
 	
 	char fileAccept = 'f';
 
-	write(sockfd, &fileAccept, sizeof(char));
-	write(sockfd, &stat_buf.st_size, sizeof(int));
-	sendfile(sockfd, file, &offset, stat_buf.st_size);
+	send(sockfd, (void*) &fileAccept, sizeof(char), 0);
+	send(sockfd, (void*) &stat_buf.st_size, sizeof(int), 0);
 
+	sendfile(sockfd, fileD, NULL, stat_buf.st_size);
+	char * closer;
+	while (1) {
+		recv(sockfd,(void*) closer, sizeof(char), 0);
+		if (*closer == 'y') {
+			break;
+		}
+	}
 	close(sockfd);
 	fclose(file);
 	pthread_exit(NULL);
@@ -154,7 +164,8 @@ int main(int argc, char **argv){
 	getcwd(in,1024);
 	getcwd(out,1024);
 	if (argc == 7) {
-		for (int i = 1; i < 7; i += 2) {
+		int i = 1;
+		for (; i < 7; i += 2) {
 			if (strcmp(argv[i], "-c") == 0) {
 				strcpy(buffer, argv[i+1]);
 			}
@@ -171,7 +182,8 @@ int main(int argc, char **argv){
 		}
 	}
 	else if (argc == 9) {
-		for (int i = 1; i < 9; i += 2) {
+		int i = 1;
+		for (; i < 9; i += 2) {
 			if (strcmp(argv[i], "-c") == 0) {
 				strcpy(buffer, argv[i+1]);
 			}
@@ -194,7 +206,8 @@ int main(int argc, char **argv){
 		}
 	}
 	else if (argc == 11) {
-		for (int i = 1; i < 9; i += 2) {
+		int i = 1;
+		for (; i < 9; i += 2) {
 			if (strcmp(argv[i], "-c") == 0) {
 				strcpy(buffer, argv[i+1]);
 			}
@@ -227,6 +240,7 @@ int main(int argc, char **argv){
 	if(strcmp(out,"./")==0){
 		getcwd(out,1024);
 	}
+
 	pthread_mutex_init(&arrIndexLock, NULL);
 	pthread_mutex_init(&createThreadLock, NULL);
 	pthread_mutex_init(&threadParamLock, NULL);
@@ -235,6 +249,9 @@ int main(int argc, char **argv){
 	TIDs = malloc(sizeof(pthread_t)*2000);	//users are capped at 2000 threads on ilabs
 	int i;
 	
+	threadCount = malloc(sizeof(int));
+	*threadCount = 0;
+
 	pthread_t children[1024];		//max files open allowed by ilabs
 	int childCount = 0;
 
@@ -242,6 +259,7 @@ int main(int argc, char **argv){
 	memset(param->path,'\0',1000);
 	strcpy(param->path, in);
 	pthread_create(&TIDs[*threadCount],NULL,&dirThread,param);
+	(*threadCount)++;
 	pthread_join(TIDs[0],NULL);
 
 	int length = strlen(buffer);
@@ -263,7 +281,8 @@ int main(int argc, char **argv){
 		newFile[13] = 'e';
 		newFile[14] = 'd';
 		newFile[15] = '-';
-		for (int i = 0; i < length; i++) {
+		int i = 0;
+		for (; i < length; i++) {
 			newFile[16 + i] = buffer[i];
 		}
 		newFile[16 + length] = '.';
@@ -274,7 +293,8 @@ int main(int argc, char **argv){
 	}
 	else {
 		int outLen = strlen(out);
-		for (int z = 0; z < outLen; z++) {
+		int z = 0;
+		for (; z < outLen; z++) {
 			newFile[z] = out[z];
 		}
 		newFile[0+outLen] = 'A';
@@ -293,7 +313,8 @@ int main(int argc, char **argv){
 		newFile[13+outLen] = 'e';
 		newFile[14+outLen] = 'd';
 		newFile[15+outLen] = '-';
-		for (int i = 0; i < length; i++) {
+		int i = 0;
+		for (; i < length; i++) {
 			newFile[16 + i+outLen] = buffer[i];
 		}
 		newFile[16 + length+outLen] = '.';
@@ -407,20 +428,25 @@ int main(int argc, char **argv){
 	}
 
 	//request dump and get dump
-	char fileAccept;
-	fileAccept = 'd';
-	write(sockfd, fileAccept, strlen(fileAccept));
-	write(sockfd, &field, sizeof(int));
+	char dumpReq;
+	dumpReq = 'd';
+
+	send(sockfd, (void*) &dumpReq, sizeof(char), 0);
+	send(sockfd, (void*) &field, sizeof(int), 0);
 	//getting dump
-	int * fileSize = -1;
-	while (1) {
-		read(sockfd, &fileSize, sizeof(int));
-		
-		read(sockfd, fileAccept2, strlen(fileAccept2));
-		if (strcmp(fileAccept2, "y") == 0) {
-			break;
-		}
+	int * dump = malloc(sizeof(int*));
+	*dump = sockfd;
+
+	FILE * data = fdopen(*dump, "r");
+	usleep(1000);
+	char c[1024];
+	fgets(c, 1024, data);
+	while (c[0] != EOF) {
+		fprintf(outFile, c);
+		fgets(c, 1024, data);
 	}
 
+	close(sockfd);
+	fclose(outFile);
 	return 0;
 }
