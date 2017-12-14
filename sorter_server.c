@@ -16,34 +16,27 @@
 #include <string.h>
 #include <netinet/in.h>
 
-//int movInd;
-//char* movies;
 char* buffer;
-struct Movie** movies;
-int* numrows;
-int* arrIndex; 
-int* threadCount;
+struct Movie* movies;
+int ARRINDEX; 
 int* threadCount;//counter to join all threads in while loop
-pthread_t* TIDs;// stores all TIDS
+pthread_t* TIDs;// stores all TIDs
 pthread_mutex_t arrayLock;
-pthread_mutex_t arrIndexLock;
+
 
 
 static void* threadService(void* arg){
-	FILE* data = fdopen((int)arg, "r");
-	pthread_mutex_lock(&arrIndexLock);
-	int ARRINDEX=*arrIndex;
-	(*arrIndex)++;
-	pthread_mutex_unlock(&arrIndexLock);
+	FILE* data = fdopen(*((int*)arg), "r");
+	usleep(1000);
 	char garbage[1024];
 	fgets(garbage,1024,data);	//gets rid of first line
-	pthread_mutex_lock(&arrayLock);
-	char* strbuf[1024];  //setup for fgets
-	int rownum=0;
+	char* strbuf[1024];  //setup for getline
 	memset(strbuf,0,1024);
 	char* delim = ",\0";
 	char* delim2 = "\"\0";
-	while(fgets(movies[ARRINDEX],1024,data) != NULL){
+	size_t linesize = 1024;
+	pthread_mutex_lock(&arrayLock);
+	while(getline(strbuf,&linesize,data) >= 28){
 		int fieldcounter = 0;
 		char* token;
 		do{
@@ -57,8 +50,8 @@ static void* threadService(void* arg){
 		 				token[i] = ',';
 		 				strcat(token, strsep(strbuf, delim2));
 		 				strsep(strbuf, delim);
-		 				movies[ARRINDEX][rownum].movie_title = (char*)malloc(sizeof(char)*(strlen(token)+1));
-		 				strcpy(movies[ARRINDEX][rownum].movie_title,token);
+		 				movies[ARRINDEX].movie_title = (char*)malloc(sizeof(char)*(strlen(token)+1));
+		 				strcpy(movies[ARRINDEX].movie_title,token);
 		 				break;
 		 			}
 		 			i++;
@@ -66,113 +59,112 @@ static void* threadService(void* arg){
 			}
 			switch (fieldcounter) {
 				case 0:
-					movies[ARRINDEX][rownum].color = (char*)malloc(sizeof(char)*(strlen(token)+1));
-					strcpy(movies[ARRINDEX][rownum].color,token);
+					movies[ARRINDEX].color = (char*)malloc(sizeof(char)*(strlen(token)+1));
+					strcpy(movies[ARRINDEX].color,token);
 					break;
 				case 1:
-					movies[ARRINDEX][rownum].director_name = (char*)malloc(sizeof(char)*(strlen(token)+1));
-					strcpy(movies[ARRINDEX][rownum].director_name,token);
+					movies[ARRINDEX].director_name = (char*)malloc(sizeof(char)*(strlen(token)+1));
+					strcpy(movies[ARRINDEX].director_name,token);
 					break;
 				case 2:
-					movies[ARRINDEX][rownum].num_critic_for_reviews = atoi(token);
+					movies[ARRINDEX].num_critic_for_reviews = atoi(token);
 					break;
 				case 3:
-					movies[ARRINDEX][rownum].duration = atoi(token);
+					movies[ARRINDEX].duration = atoi(token);
 					break;
 				case 4:
-					movies[ARRINDEX][rownum].director_facebook_likes = atoi(token);
+					movies[ARRINDEX].director_facebook_likes = atoi(token);
 					break;
 				case 5:
-					movies[ARRINDEX][rownum].actor_3_facebook_likes = atoi(token);
+					movies[ARRINDEX].actor_3_facebook_likes = atoi(token);
 					break;
 				case 6:
-					movies[ARRINDEX][rownum].actor_2_name = (char*)malloc(sizeof(char)*(strlen(token)+1));
-					strcpy(movies[ARRINDEX][rownum].actor_2_name,token);
+					movies[ARRINDEX].actor_2_name = (char*)malloc(sizeof(char)*(strlen(token)+1));
+					strcpy(movies[ARRINDEX].actor_2_name,token);
 					break;
 				case 7:
-					movies[ARRINDEX][rownum].actor_1_facebook_likes = atoi(token);
+					movies[ARRINDEX].actor_1_facebook_likes = atoi(token);
 					break;
 				case 8:
-					movies[ARRINDEX][rownum].gross = atoi(token);
+					movies[ARRINDEX].gross = atoi(token);
 					break;				
 				case 9:
-					movies[ARRINDEX][rownum].genres = (char*)malloc(sizeof(char)*(strlen(token)+1));
-					strcpy(movies[ARRINDEX][rownum].genres,token);
+					movies[ARRINDEX].genres = (char*)malloc(sizeof(char)*(strlen(token)+1));
+					strcpy(movies[ARRINDEX].genres,token);
 					break;
 				case 10:
-					movies[ARRINDEX][rownum].actor_1_name = (char*)malloc(sizeof(char)*(strlen(token)+1));
-					strcpy(movies[ARRINDEX][rownum].actor_1_name,token);
+					movies[ARRINDEX].actor_1_name = (char*)malloc(sizeof(char)*(strlen(token)+1));
+					strcpy(movies[ARRINDEX].actor_1_name,token);
 					break;
 				case 11:
-					if(movies[ARRINDEX][rownum].movie_title == NULL){
-						movies[ARRINDEX][rownum].movie_title = (char*)malloc(sizeof(char)*(strlen(token)+1));
-						strcpy(movies[ARRINDEX][rownum].movie_title,token);
+					if(movies[ARRINDEX].movie_title == NULL){
+						movies[ARRINDEX].movie_title = (char*)malloc(sizeof(char)*(strlen(token)+1));
+						strcpy(movies[ARRINDEX].movie_title,token);
 					}
 					break;
 				case 12:
-					movies[ARRINDEX][rownum].num_voted_users = atoi(token);
+					movies[ARRINDEX].num_voted_users = atoi(token);
 					break;
 				case 13:
-					movies[ARRINDEX][rownum].cast_total_facebook_likes = atoi(token);
+					movies[ARRINDEX].cast_total_facebook_likes = atoi(token);
 					break;
 				case 14:
-					movies[ARRINDEX][rownum].actor_3_name = (char*)malloc(sizeof(char)*(strlen(token)+1));
-					strcpy(movies[ARRINDEX][rownum].actor_3_name,token);
+					movies[ARRINDEX].actor_3_name = (char*)malloc(sizeof(char)*(strlen(token)+1));
+					strcpy(movies[ARRINDEX].actor_3_name,token);
 					break;
 				case 15:
-					movies[ARRINDEX][rownum].facenumber_in_poster = atoi(token);
+					movies[ARRINDEX].facenumber_in_poster = atoi(token);
 					break;
 				case 16:
-					movies[ARRINDEX][rownum].plot_keywords = (char*)malloc(sizeof(char)*(strlen(token)+1));
-					strcpy(movies[ARRINDEX][rownum].plot_keywords,token);
+					movies[ARRINDEX].plot_keywords = (char*)malloc(sizeof(char)*(strlen(token)+1));
+					strcpy(movies[ARRINDEX].plot_keywords,token);
 					break;
 				case 17:
-					movies[ARRINDEX][rownum].movie_imdb_link = (char*)malloc(sizeof(char)*(strlen(token)+1));
-					strcpy(movies[ARRINDEX][rownum].movie_imdb_link,token);
+					movies[ARRINDEX].movie_imdb_link = (char*)malloc(sizeof(char)*(strlen(token)+1));
+					strcpy(movies[ARRINDEX].movie_imdb_link,token);
 					break;
 				case 18:
-					movies[ARRINDEX][rownum].num_user_for_reviews = atoi(token);
+					movies[ARRINDEX].num_user_for_reviews = atoi(token);
 					break;
 				case 19:
-					movies[ARRINDEX][rownum].language = (char*)malloc(sizeof(char)*(strlen(token)+1));
-					strcpy(movies[ARRINDEX][rownum].language,token);
+					movies[ARRINDEX].language = (char*)malloc(sizeof(char)*(strlen(token)+1));
+					strcpy(movies[ARRINDEX].language,token);
 					break;
 				case 20:
-					movies[ARRINDEX][rownum].country = (char*)malloc(sizeof(char)*(strlen(token)+1));
-					strcpy(movies[ARRINDEX][rownum].country,token);
+					movies[ARRINDEX].country = (char*)malloc(sizeof(char)*(strlen(token)+1));
+					strcpy(movies[ARRINDEX].country,token);
 					break;
 				case 21:
-					movies[ARRINDEX][rownum].content_rating = (char*)malloc(sizeof(char)*(strlen(token)+1));
-					strcpy(movies[ARRINDEX][rownum].content_rating,token);
+					movies[ARRINDEX].content_rating = (char*)malloc(sizeof(char)*(strlen(token)+1));
+					strcpy(movies[ARRINDEX].content_rating,token);
 					break;
 				case 22:
-					movies[ARRINDEX][rownum].budget = atoi(token);
+					movies[ARRINDEX].budget = atoi(token);
 					break;
 				case 23:
-					movies[ARRINDEX][rownum].title_year = atoi(token);
+					movies[ARRINDEX].title_year = atoi(token);
 					break;
 				case 24:
-					movies[ARRINDEX][rownum].actor_2_facebook_likes = atoi(token);
+					movies[ARRINDEX].actor_2_facebook_likes = atoi(token);
 					break;
 				case 25:
-					movies[ARRINDEX][rownum].imdb_score = atof(token);
+					movies[ARRINDEX].imdb_score = atof(token);
 					break;
 				case 26:
-					movies[ARRINDEX][rownum].aspect_ratio = atof(token);
+					movies[ARRINDEX].aspect_ratio = atof(token);
 					break;
 				case 27:
-					movies[ARRINDEX][rownum].movie_facebook_likes = atoi(token);
+					movies[ARRINDEX].movie_facebook_likes = atoi(token);
 					break;
 			}
 			fieldcounter++;
 		}
 		while(fieldcounter<=27);
+		printf("%d",ARRINDEX);
 		ARRINDEX++;
-		rownum++;
 	} 
 	pthread_mutex_unlock(&arrayLock);
  	fclose(data);
- 	numrows[ARRINDEX]=rownum;
 	pthread_exit(NULL);
 }
 
@@ -191,19 +183,11 @@ int main(int argc, char* argv[]){
 		printf("incorrect input format, correct format is ./sorter_server -p [port_num]\n");
 		return -1;
 	}
-	TIDs=malloc(sizeof(pthread_t)*2000);
+	TIDs = malloc(sizeof(pthread_t)*2000);
 	int i;
 	movies = malloc(500000*sizeof(struct Movie));
-	for(i=0;i<1024;i++){
-		movies[i]=malloc(sizeof(struct Movie)*10000);
-	}
 	threadCount=malloc(sizeof(int));
 	*threadCount=0;
-	arrIndex=malloc(sizeof(int));
-	*arrIndex=0;
-	numrows=calloc(1024,sizeof(int));
-	*threadCount=0;
-	//movInd = 0;
 	setbuf(stdout, NULL);
 	
 	pthread_t children[1024];		//max files open allowed by ilabs
@@ -213,22 +197,6 @@ int main(int argc, char* argv[]){
 	int sockfd;
 	int clientfd;
 	pthread_mutex_init(&arrayLock, NULL);
-	pthread_mutex_init(&arrIndexLock,NULL);
-	int totalLength = 0;
-	int j=0;
-	for (j;j<1024;j++){
-		totalLength = totalLength + numrows[j];
-	}
-	struct Movie* movieSort = malloc(sizeof(struct Movie)*totalLength); //dump
-	int k = 0;
-	int n = 0;
-	int m = 0;
-	for(k; k < *arrIndex; k++){
-		for(n = 0; n < numrows[k]; n++){
-			movieSort[m] = movies[k][n];
-			m++;
-		}
-	}
 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) <= 0)
 	{
 		printf("error: socket creation failed\n");
@@ -245,15 +213,20 @@ int main(int argc, char* argv[]){
 		return -1;
 	}
 
-	if(listen(sockfd,5)<0){
+	if(listen(sockfd,10)<0){
 		printf("error: listening failed\n");
 		close(sockfd);
 		return -1;
 	}
 
-	while(true){
+	printf("Recieved connections from: ");
+	struct sockaddr* incoming = malloc(sizeof(struct sockaddr*));
 
-		clientfd = accept(sockfd,NULL,NULL);
+	while(1){
+
+		int* len = malloc(sizeof(int*));
+		*len = sizeof(struct sockaddr);
+		clientfd = accept(sockfd,incoming,len);
 		
 		if(clientfd < 1){
 			printf("error: accept failed\n");
@@ -261,21 +234,31 @@ int main(int argc, char* argv[]){
 			return -1;
 		}
 
-		//print the client IP
-
-		int arg = clientfd;
-		//pthread_t thrd[1];
-		char* mode;
-		read(clientfd,&mode,1);
+		int addr = getpeername(clientfd, incoming, len);
+		printf("%s",incoming->sa_data);
+		int* arg = malloc(sizeof(int*));
+		*arg = clientfd;
+		char* mode = malloc(sizeof(char*));
+		recv(clientfd,(void*)mode,1,0);
+		printf("%c",*mode);
 		if(*mode == 'f'){
 			pthread_create(&TIDs[*threadCount],NULL,&threadService,(void*)arg);
 			(*threadCount)++;
 		}
+		if(*mode == 'd'){
+			for(;*threadCount>=0;(*threadCount)--){
+				pthread_join(TIDs[*threadCount],NULL);
+			}
+			int* field = malloc(sizeof(int*));
+			read(clientfd,&field,4);
+			printf("%d", *field);
+			mergesort(movies,0,ARRINDEX,*field);
+			free(field);
+		}	
 
 
 	}
 	//still need to join
-	close(sockfd);
 	return 0;
 
 
