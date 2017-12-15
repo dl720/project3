@@ -258,7 +258,7 @@ int main(int argc, char* argv[]){
 			(*threadCount)++;
 		}
 		if(*mode == 'd'){
-			for(;*threadCount>=0;(*threadCount)--){
+			for(;*threadCount>0;(*threadCount)--){
 				pthread_join(TIDs[(*threadCount)-1],NULL);
 			}
 			int* field = malloc(sizeof(int*));
