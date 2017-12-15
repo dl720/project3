@@ -27,6 +27,8 @@ pthread_mutex_t argLock;
 
 static void* threadService(void* arg){
 	int FD = *(int*)arg;
+	printf("file descriptor:%d",FD);
+	usleep(10000);
 	FILE* data = fdopen(FD, "r");
 	char garbage[1024];
 	fgets(garbage,1024,data);	//gets rid of first line
@@ -256,13 +258,28 @@ int main(int argc, char* argv[]){
 			(*threadCount)++;
 		}
 		if(*mode == 'd'){
-			for(;*threadCount>0;(*threadCount)--){
-				pthread_join(TIDs[*threadCount-1],NULL);
+			for(;*threadCount>=0;(*threadCount)--){
+				pthread_join(TIDs[*threadCount],NULL);
 			}
 			int* field = malloc(sizeof(int*));
-			recv(clientfd,(void*)&field,sizeof(int),0);
+			recv(clientfd,&field,4,0);
 			printf("%d", *field);
 			mergesort(movies,0,ARRINDEX,*field);
+			FILE * sorted = fopen("sorted.csv", "w");
+			i = 0;
+			while(ARRINDEX > i){
+				fprintf(sorted,"%s,%s,%d,%d,%d,%d,%s,%d,%d,%s,%s,%s,%d,%d,%s,%d,%s,%s,%d,%s,%s,%s,%d,%d,%d,%f,%f,%d\n", movies[i].color, movies[i].director_name, movies[i].num_critic_for_reviews,
+			 		movies[i].duration, movies[i].director_facebook_likes, movies[i].actor_3_facebook_likes, movies[i].actor_2_name, movies[i].actor_1_facebook_likes, movies[i].gross, movies[i].genres,
+			  		movies[i].actor_1_name, movies[i].movie_title, movies[i].num_voted_users, movies[i].cast_total_facebook_likes, movies[i].actor_3_name, movies[i].facenumber_in_poster,
+			   		movies[i].plot_keywords, movies[i].movie_imdb_link, movies[i].num_user_for_reviews, movies[i].language, movies[i].country, movies[i].content_rating,
+			    	movies[i].budget, movies[i].title_year, movies[i].actor_2_facebook_likes, movies[i].imdb_score, movies[i].aspect_ratio, movies[i].movie_facebook_likes);
+				i++;
+			}
+			int fileSend = fileno(sorted);
+			struct stat stat_buf;
+			fstat(fileno(sorted), &stat_buf);
+			sendfile(clientfd, fileSend, NULL, stat_buf.st_size);
+			fclose(sorted);
 			free(field);
 		}
 		free(mode);

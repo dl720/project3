@@ -160,7 +160,7 @@ int main(int argc, char **argv){
 		printf("Incorrect input\n");
 		return 0;
 	}
-	buffer=(char*)malloc(sizeof(char)*25);
+	buffer=(char*)malloc(sizeof(char)*30);
 	in=(char*)malloc(sizeof(char)*1024);
 	out=(char*)malloc(sizeof(char)*1024);
 	getcwd(in,1024);
