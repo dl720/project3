@@ -28,7 +28,7 @@ pthread_mutex_t argLock;
 static void* threadService(void* arg){
 	int FD = *(int*)arg;
 	printf("file descriptor:%d",FD);
-	usleep(10000);
+	usleep(1000);
 	FILE* data = fdopen(FD, "r");
 	char garbage[1024];
 	fgets(garbage,1024,data);	//gets rid of first line
@@ -259,7 +259,7 @@ int main(int argc, char* argv[]){
 		}
 		if(*mode == 'd'){
 			for(;*threadCount>=0;(*threadCount)--){
-				pthread_join(TIDs[*threadCount],NULL);
+				pthread_join(TIDs[(*threadCount)-1],NULL);
 			}
 			int* field = malloc(sizeof(int*));
 			recv(clientfd,&field,4,0);
