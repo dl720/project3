@@ -11,7 +11,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <errno.h>
-#include "sorter_thread.h"
+#include "sorter_client.h"
 #include <fcntl.h>
 #include <string.h>
 #include <netinet/in.h>
@@ -27,7 +27,7 @@ pthread_mutex_t argLock;
 
 static void* threadService(void* arg){
 	int FD = *(int*)arg;
-	printf("file descriptor:%d",FD);
+	printf("file descriptor:%d\n",FD);
 	usleep(1000);
 	FILE* data = fdopen(FD, "r");
 	char garbage[1024];
@@ -162,15 +162,15 @@ static void* threadService(void* arg){
 			fieldcounter++;
 		}
 		while(fieldcounter<=27);
-		printf("%d",ARRINDEX);
+		printf("%d\n",ARRINDEX);
 		ARRINDEX++;
 	} 
 	pthread_mutex_unlock(&arrayLock);
 	char* ret = malloc(sizeof(char*));
 	*ret = 'y';
-	printf("sending close...");
+	printf("sending close...\n");
 	send(FD,(void*)&ret,1,0);
-	printf("close sent");
+	printf("close sent\n");
  	fclose(data);
  	close(FD);
  	free(ret);
@@ -229,7 +229,7 @@ int main(int argc, char* argv[]){
 		return -1;
 	}
 
-	printf("Recieved connections from: ");
+	printf("Recieved connections from: \n");
 	struct sockaddr* incoming = malloc(sizeof(struct sockaddr*));
 
 	while(1){
@@ -245,7 +245,12 @@ int main(int argc, char* argv[]){
 		}
 
 		int addr = getpeername(clientfd, incoming, len);
-		printf("%s",incoming->sa_data);
+		char ipaddr[INET_ADDRSTRLEN];
+		if(inet_ntop(AF_INET,&address.sin_addr.s_addr,ipaddr, INET_ADDRSTRLEN)!=NULL){		
+			printf("IP Address: %s\n",ipaddr);
+		}else{
+			printf("error\n");
+		}
 		argList[*threadCount] = malloc(sizeof(int*));
 		*(argList[*threadCount]) = clientfd;
 		int* fsize = malloc(sizeof(int*));
@@ -263,7 +268,7 @@ int main(int argc, char* argv[]){
 			}
 			int* field = malloc(sizeof(int*));
 			recv(clientfd,&field,4,0);
-			printf("%d", *field);
+			printf("%d\n", *field);
 			mergesort(movies,0,ARRINDEX,*field);
 			FILE * sorted = fopen("sorted.csv", "w");
 			i = 0;
